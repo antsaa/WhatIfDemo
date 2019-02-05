@@ -2,9 +2,11 @@ import { Component, OnInit, ChangeDetectorRef } from '@angular/core';
 
 import { AuthService } from './auth.service';
 import { ProgressService } from './progress.service';
+import { AppConfig } from './app.config';
+import { config } from 'rxjs';
 
 // Change Facebook AppId and other settings inside ../environments/environment.ts file
-import { environment } from '../environments/environment';
+//import { environment } from '../environments/environment';
 
 // Facebook JavaScript SDK's URI
 const facebookScriptBaseUri = 'https://connect.facebook.net/en_US/sdk.js#xfbml=1&version=v3.2&appId=';
@@ -18,7 +20,7 @@ declare var FB: any;
 	styleUrls: ['./app.component.css']
 })
 export class AppComponent implements OnInit {
-
+    protected config = AppConfig.settings;
     constructor(public authService: AuthService,
         public progressService: ProgressService,
         private changeDetectorRef: ChangeDetectorRef)
@@ -34,7 +36,7 @@ export class AppComponent implements OnInit {
         
 		var facebookScriptTag = document.createElement('script');
 		facebookScriptTag.id = facebookScriptTagId;
-        facebookScriptTag.src = facebookScriptBaseUri + environment.facebookAppId;
+        facebookScriptTag.src = facebookScriptBaseUri + this.config.facebook.appId;
 
 		var allScriptTags = document.getElementsByTagName('script');
 		allScriptTags[0].parentNode.insertBefore(facebookScriptTag, allScriptTags[0]);
@@ -60,11 +62,11 @@ export class AppComponent implements OnInit {
     }
 
     checkEnvironmentConfig() {
-        if (!environment.facebookAppId) {
-            (<any>environment).facebookAppId = prompt('facebookAppId wasn\'t found in environment.ts file. Enter your facebookAppId (you can register your app on https://developers.facebook.com/apps):');
+        if (!this.config.facebook.appId) {
+            this.config.facebook.appId = prompt('facebookAppId wasn\'t found in environment.ts file. Enter your facebookAppId (you can register your app on https://developers.facebook.com/apps):');
         }
-        if (!environment.backendBaseUri) {
-            (<any>environment).backendBaseUri = prompt('backendBaseUri wasn\'t found in environment.ts file. Enter the base URI of your Azure Functions deployment:');
+        if (!this.config.api.url) {
+            this.config.api.url = prompt('backendBaseUri wasn\'t found in environment.ts file. Enter the base URI of your Azure Functions deployment:');
         }
     }
 }

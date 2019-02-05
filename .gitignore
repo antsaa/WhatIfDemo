@@ -334,3 +334,4 @@ dist/
 
 # Angular local environment parameters
 environment.local.ts
+config.local.json

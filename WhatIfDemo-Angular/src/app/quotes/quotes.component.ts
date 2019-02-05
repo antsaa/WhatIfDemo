@@ -3,9 +3,7 @@ import { HttpClient } from '@angular/common/http';
 
 import { AuthService } from '../auth.service';
 import { ProgressService } from '../progress.service';
-
-// Change Facebook AppId and other settings inside ../environments/environment.ts file
-import { environment } from '../../environments/environment';
+import { AppConfig } from '../app.config';
 
 @Component({
     selector: 'app-quotes',
@@ -13,7 +11,7 @@ import { environment } from '../../environments/environment';
     styleUrls: ['./quotes.component.css']
 })
 export class QuotesComponent {
-
+    protected config = AppConfig.settings;
     quotes = null;
 
     constructor(private authService: AuthService,
@@ -25,7 +23,7 @@ export class QuotesComponent {
     
     // Loads the latest quotes from server
     reloadQuotes() {
-        this.http.get(environment.backendBaseUri + '/api/GetQuotes', this.authService.backendHttpOptions)
+        this.http.get(this.config.api.url + '/api/GetQuotes', this.authService.backendHttpOptions)
             .subscribe(this.progressService.getObserver(null, (response: any) => {
                 this.quotes = response;
             }));
@@ -34,7 +32,7 @@ export class QuotesComponent {
     // Purchases the selected policy and reloads the list
     buyPolicy(policy: any) {
 
-        this.http.post(environment.backendBaseUri + '/api/Purchase', policy, this.authService.backendHttpOptions)
+        this.http.post(this.config.api.url + '/api/Purchase', policy, this.authService.backendHttpOptions)
             .subscribe(this.progressService.getObserver(null, () => {
 
                 alert('Thank you for purchasing ' + policy.title + '! You will be charged daily!');

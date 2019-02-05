@@ -39,12 +39,12 @@
                 }
               ]
             },
-		  
-            "production": {
+            
+            "deploy": {
               "fileReplacements": [
                 {
                   "replace": "src/environments/environment.ts",
-                  "with": "src/environments/environment.prod.ts"
+                  "with": "src/environments/environment.deploy.ts"
                 }
               ],
               "optimization": true,
@@ -69,7 +69,7 @@
         "serve": {
           "builder": "@angular-devkit/build-angular:dev-server",
           "options": {
-            "browserTarget": "WhatIfDemo-Angular:build"
+            "browserTarget": "WhatIfDemo-Angular:build:local"
           },
           "configurations": {
 		  
@@ -77,8 +77,8 @@
               "browserTarget": "WhatIfDemo-Angular:build:local"
             },
 		  
-            "production": {
-              "browserTarget": "WhatIfDemo-Angular:build:production"
+            "deploy": {
+              "browserTarget": "WhatIfDemo-Angular:build:deploy"
             }
           }
         },
