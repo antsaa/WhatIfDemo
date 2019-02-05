@@ -13,6 +13,6 @@
         "appId": "#{facebookAppId}"
     },
     "api": {
-        "url": "https://#{apiUrl}.azurewebsites.net"
+        "url": "https://#{apiUrl}.azurewebsites.net/"
     }
 }
