@@ -24,11 +24,11 @@
             "defaultValue": "[resourceGroup().location]"
         },
         "sendGridApiKey": {
-            "type": "string",
+            "type": "securestring",
             "minLength": 10
         },
         "notificationHubConnection": {
-            "type": "string",
+            "type": "securestring",
             "minLength": 10
         },
         "recipientEmailAddress": {
