@@ -30,6 +30,18 @@
         "notificationHubConnection": {
             "type": "string",
             "minLength": 10
+        },
+        "recipientEmailAddress": {
+            "type": "string"
+        },
+        "cognitiveServicesUri": {
+            "type": "securestring"
+        },
+        "cognitiveServicesKey": {
+            "type": "securestring"
+        },
+        "sqlServerAdminPassword": {
+            "type": "securestring"
         }
     },
     "variables": {
@@ -41,7 +53,9 @@
         "serviceBusNamespace": "[concat('whatif-', 'sb-', parameters('deployEnv'))]",
         "storageAccountName": "[replace(concat(variables('appName'), 'storage'), '-', '')]",
         "storageAccountid": "[concat(resourceGroup().id,'/providers/','Microsoft.Storage/storageAccounts/', variables('storageAccountName'))]",
-        "keyVaultName": "[concat(variables('appName'), '-keyvault')]"
+        "keyVaultName": "[concat(variables('appName'), '-keyvault')]",
+        "sqlServerName": "[concat('whatifsql', '-', parameters('deployEnv'))]",
+        "sqlDatabaseName": "whatifdb"
     },
     "resources": [
         {
@@ -50,60 +64,104 @@
             "type": "Microsoft.ServiceBus/namespaces",
             "location": "[resourceGroup().location]",
             "sku": {
-              "name": "Standard"
+                "name": "Standard"
             },
             "resources": [
-              {
-                "apiVersion": "2017-04-01",
-                "name": "Orders",
-                "type": "Queues",
-                "dependsOn": [
-                  "[concat('Microsoft.ServiceBus/namespaces/', variables('serviceBusNamespace'))]"
-                ],
-                "properties": {
-                  "lockDuration": "PT30S",
-                  "maxSizeInMegabytes": "1024",
-                  "requiresDuplicateDetection": "false",
-                  "requiresSession": "false",
-                  "defaultMessageTimeToLive": "P14D",
-                  "deadLetteringOnMessageExpiration": "false",
-                  "duplicateDetectionHistoryTimeWindow": "PT10M",
-                  "maxDeliveryCount": "5",
-                  "autoDeleteOnIdle": "P10675199DT2H48M5.4775807S"
+                {
+                    "apiVersion": "2017-04-01",
+                    "name": "Orders",
+                    "type": "Queues",
+                    "dependsOn": [
+                        "[concat('Microsoft.ServiceBus/namespaces/', variables('serviceBusNamespace'))]"
+                    ],
+                    "properties": {
+                        "lockDuration": "PT30S",
+                        "maxSizeInMegabytes": "1024",
+                        "requiresDuplicateDetection": "false",
+                        "requiresSession": "false",
+                        "defaultMessageTimeToLive": "P14D",
+                        "deadLetteringOnMessageExpiration": "false",
+                        "duplicateDetectionHistoryTimeWindow": "PT10M",
+                        "maxDeliveryCount": "5",
+                        "autoDeleteOnIdle": "P10675199DT2H48M5.4775807S"
+                    }
                 }
-              }
             ]
-          },
-          {
+        },
+        {
             "apiVersion": "2015-04-08",
             "type": "Microsoft.DocumentDB/databaseAccounts",
             "kind": "GlobalDocumentDB",
             "name": "[variables('cosmosDbNamespace')]",
             "location": "[parameters('location')]",
             "properties": {
-              "name": "WhatIdDemoDb",
-              "databaseAccountOfferType": "Standard",
-              "locations": [
-                {
-                  "locationName": "[parameters('location')]",
-                  "failoverPriority": 0
-                },
-                {
-                  "locationName": "[parameters('location')]",
-                  "failoverPriority": 1
-                }
-              ],
-              "capabilities": [
-                {
-                  "name": "SQL"
-                }
-              ]
+                "name": "WhatIdDemoDb",
+                "databaseAccountOfferType": "Standard",
+                "locations": [
+                    {
+                        "locationName": "[parameters('location')]",
+                        "failoverPriority": 0
+                    },
+                    {
+                        "locationName": "[parameters('location')]",
+                        "failoverPriority": 1
+                    }
+                ],
+                "capabilities": [
+                    {
+                        "name": "SQL"
+                    }
+                ]
             },
             "tags": {
-              "defaultExperience": "SQL"
+                "defaultExperience": "SQL"
             }
-          },
-        
+        },
+        {
+            "type": "Microsoft.Sql/servers",
+            "kind": "v12.0",
+            "name": "[variables('sqlServerName')]",
+            "apiVersion": "2015-05-01-preview",
+            "location": "[resourceGroup().location]",
+            "sku": {
+                "name": "Basic",
+                "tier": "Basic"
+            },
+            "properties": {
+                "maxSizeBytes": "2147483648",
+                "administratorLogin": "whatif",
+                "administratorLoginPassword": "[parameters('sqlServerAdminPassword')]",
+                "version": "12.0"
+            },
+            "resources": [
+                {
+                    "type": "Microsoft.Sql/servers/firewallRules",
+                    "name": "[concat(variables('sqlServerName'), '/AllowAllWindowsAzureIps')]",
+                    "apiVersion": "2015-05-01-preview",
+                    "properties": {
+                        "startIpAddress": "0.0.0.0",
+                        "endIpAddress": "0.0.0.0"
+                    },
+                    "dependsOn": [
+                        "[resourceId('Microsoft.Sql/servers', variables('sqlServerName'))]"
+                    ]
+                }
+            ]
+        },
+        {
+            "type": "Microsoft.Sql/servers/databases",
+            "sku": {
+                "name": "Basic",
+                "tier": "Basic"
+            },
+            "kind": "v12.0,user",
+            "name": "[concat(variables('sqlServerName'), '/', variables('sqlDatabaseName'))]",
+            "apiVersion": "2017-03-01-preview",
+            "location": "[resourceGroup().location]",
+            "dependsOn": [
+                "[resourceId('Microsoft.Sql/servers', variables('sqlServerName'))]"
+            ]
+        },
         {
             "type": "Microsoft.Storage/storageAccounts",
             "name": "[variables('storageAccountName')]",
@@ -133,7 +191,7 @@
             "kind": "functionapp",
             "identity": {
                 "type": "SystemAssigned"
-            } ,
+            },
             "dependsOn": [
                 "[resourceId('Microsoft.Web/serverfarms', variables('hostingPlanName'))]",
                 "[resourceId('Microsoft.Storage/storageAccounts', variables('storageAccountName'))]"
@@ -159,6 +217,26 @@
                             "value": "[concat('@Microsoft.KeyVault(SecretUri=', reference('NotificationHubConnection').secretUriWithVersion, ')')]"
                         },
                         {
+                            "name": "CognitiveServicesKey",
+                            "value": "[concat('@Microsoft.KeyVault(SecretUri=', reference('CognitiveServicesKey').secretUriWithVersion, ')')]"
+                        },
+                        {
+                            "name": "CognitiveServicesUri",
+                            "value": "[concat('@Microsoft.KeyVault(SecretUri=', reference('CognitiveServicesUri').secretUriWithVersion, ')')]"
+                        },
+                        {
+                            "name": "NotificationHubPath",
+                            "value": "KonstServerlessTest"
+                        },
+                        {
+                            "name": "TestEmailAddress",
+                            "value": "[parameters('recipientEmailAddress')]"
+                        },
+                        {
+                            "name": "ServiceBusConnection",
+                            "value": "[concat('@Microsoft.KeyVault(SecretUri=', reference('ServiceBusConnection').secretUriWithVersion, ')')]"
+                        },
+                        {
                             "name": "WEBSITE_CONTENTAZUREFILECONNECTIONSTRING",
                             "value": "[concat('DefaultEndpointsProtocol=https;AccountName=', variables('storageAccountName'), ';AccountKey=', listKeys(variables('storageAccountid'),'2015-05-01-preview').key1)]"
                         },
@@ -171,13 +249,13 @@
                             "value": "~2"
                         },
                         {
-							"name": "WEBSITE_NODE_DEFAULT_VERSION",
-							"value": "8.11.1"
-						},
-						{
-							"name": "FUNCTIONS_WORKER_RUNTIME",
-							"value": "dotnet"
-						},
+                            "name": "WEBSITE_NODE_DEFAULT_VERSION",
+                            "value": "8.11.1"
+                        },
+                        {
+                            "name": "FUNCTIONS_WORKER_RUNTIME",
+                            "value": "dotnet"
+                        },
                         {
                             "name": "APPINSIGHTS_INSTRUMENTATIONKEY",
                             "value": "[reference(resourceId('microsoft.insights/components/', variables('applicationInsightsName')), '2015-05-01').InstrumentationKey]"
@@ -205,128 +283,158 @@
             "apiVersion": "2016-10-01",
             "location": "[parameters('location')]",
             "properties": {
-              "accessPolicies": [],
-              "enabledForDeployment": false,
-              "enabledForDiskEncryption": false,
-              "enabledForTemplateDeployment": false,
-              "tenantId": "[subscription().tenantId]",
-              "sku": {
-                "name": "standard",
-                "family": "A"
-              }
+                "accessPolicies": [],
+                "enabledForDeployment": false,
+                "enabledForDiskEncryption": false,
+                "enabledForTemplateDeployment": false,
+                "tenantId": "[subscription().tenantId]",
+                "sku": {
+                    "name": "standard",
+                    "family": "A"
+                }
             }
-          },
-          {
-			"type": "Microsoft.KeyVault/vaults/accessPolicies",
-			"name": "[concat(variables('keyVaultName'), '/add')]",
-			"apiVersion": "2018-02-14",
-			"properties": {
-				"accessPolicies": [
-					{
-						"tenantId": "[subscription().tenantId]",
-						"objectId": "[reference(concat('Microsoft.Web/sites/', variables('functionAppName')), '2018-02-01', 'Full').identity.principalId]",
-						"permissions": {
-							"secrets": [
-								"get"
-							]
-						}
-					},
-					{
-						"comments": "Antton for local access",
-						"tenantId": "[subscription().tenantId]",
-						"objectId": "afe4b66c-befb-4fda-b638-5ef2a4af4899",
-						"permissions": {
-							"secrets": [
-								"Get",
-								"List",
-								"Recover",
-								"Backup",
-								"Restore"
-							]
-						}
-					},
-					{
-						"comments": "Konstantin for local access",
-						"tenantId": "[subscription().tenantId]",
-						"objectId": "509cc6fe-052a-41a9-b232-0a7bcda4fea3",
-						"permissions": {
-							"secrets": [
-								"Get",
-								"List",
-								"Recover",
-								"Backup",
-								"Restore"
-							]
-						}
-					}
-				]
-			},
-			"dependsOn": [
-				"[resourceId('Microsoft.KeyVault/vaults/', variables('keyVaultName'))]",
-				"[resourceId('Microsoft.Web/sites', variables('functionAppName'))]"
-			]
         },
         {
-			"type": "Microsoft.KeyVault/vaults/secrets",
-			"name": "[concat(variables('keyVaultName'), '/SendGridApiKey')]",
-			"apiVersion": "2015-06-01",
-			"properties": {
-				"value": "[parameters('sendGridApiKey')]"
-			},
-			"copy": {
-				"name": "secretsCopy",
-				"count": 1
-			},
-			"dependsOn": [
-				"[concat('Microsoft.KeyVault/vaults/', variables('keyVaultName'))]"
-			]
+            "type": "Microsoft.KeyVault/vaults/accessPolicies",
+            "name": "[concat(variables('keyVaultName'), '/add')]",
+            "apiVersion": "2018-02-14",
+            "properties": {
+                "accessPolicies": [
+                    {
+                        "tenantId": "[subscription().tenantId]",
+                        "objectId": "[reference(concat('Microsoft.Web/sites/', variables('functionAppName')), '2018-02-01', 'Full').identity.principalId]",
+                        "permissions": {
+                            "secrets": [
+                                "get"
+                            ]
+                        }
+                    },
+                    {
+                        "comments": "Antton for local access",
+                        "tenantId": "[subscription().tenantId]",
+                        "objectId": "afe4b66c-befb-4fda-b638-5ef2a4af4899",
+                        "permissions": {
+                            "secrets": [
+                                "Get",
+                                "List",
+                                "Recover",
+                                "Backup",
+                                "Restore"
+                            ]
+                        }
+                    },
+                    {
+                        "comments": "Konstantin for local access",
+                        "tenantId": "[subscription().tenantId]",
+                        "objectId": "509cc6fe-052a-41a9-b232-0a7bcda4fea3",
+                        "permissions": {
+                            "secrets": [
+                                "Get",
+                                "List",
+                                "Recover",
+                                "Backup",
+                                "Restore"
+                            ]
+                        }
+                    }
+                ]
+            },
+            "dependsOn": [
+                "[resourceId('Microsoft.KeyVault/vaults/', variables('keyVaultName'))]",
+                "[resourceId('Microsoft.Web/sites', variables('functionAppName'))]"
+            ]
         },
         {
-			"type": "Microsoft.KeyVault/vaults/secrets",
-			"name": "[concat(variables('keyVaultName'), '/NotificationHubConnection')]",
-			"apiVersion": "2015-06-01",
-			"properties": {
-				"value": "[parameters('notificationHubConnection')]"
-			},
-			"copy": {
-				"name": "secretsCopy",
-				"count": 1
-			},
-			"dependsOn": [
-				"[concat('Microsoft.KeyVault/vaults/', variables('keyVaultName'))]"
-			]
+            "type": "Microsoft.KeyVault/vaults/secrets",
+            "name": "[concat(variables('keyVaultName'), '/SendGridApiKey')]",
+            "apiVersion": "2015-06-01",
+            "properties": {
+                "value": "[parameters('sendGridApiKey')]"
+            },
+            "copy": {
+                "name": "secretsCopy",
+                "count": 1
+            },
+            "dependsOn": [
+                "[concat('Microsoft.KeyVault/vaults/', variables('keyVaultName'))]"
+            ]
         },
         {
-			"type": "Microsoft.KeyVault/vaults/secrets",
-			"name": "[concat(variables('keyVaultName'), '/CosmosDBConnection')]",
-			"apiVersion": "2015-06-01",
-			"properties": {
-				"value": "[concat('AccountEndpoint=https://', variables('cosmosDbNamespace'), '.documents.azure.com:443/;AccountKey=', listKeys(resourceId('Microsoft.DocumentDb/databaseAccounts', variables('cosmosDbNamespace')), '2016-03-31').primaryMasterKey, ';')]"
-			},
-			"copy": {
-				"name": "secretsCopy",
-				"count": 1
-			},
-			"dependsOn": [
+            "type": "Microsoft.KeyVault/vaults/secrets",
+            "name": "[concat(variables('keyVaultName'), '/NotificationHubConnection')]",
+            "apiVersion": "2015-06-01",
+            "properties": {
+                "value": "[parameters('notificationHubConnection')]"
+            },
+            "copy": {
+                "name": "secretsCopy",
+                "count": 1
+            },
+            "dependsOn": [
+                "[concat('Microsoft.KeyVault/vaults/', variables('keyVaultName'))]"
+            ]
+        },
+        {
+            "type": "Microsoft.KeyVault/vaults/secrets",
+            "name": "[concat(variables('keyVaultName'), '/CognitiveServicesKey')]",
+            "apiVersion": "2015-06-01",
+            "properties": {
+                "value": "[parameters('cognitiveServicesKey')]"
+            },
+            "copy": {
+                "name": "secretsCopy",
+                "count": 1
+            },
+            "dependsOn": [
+                "[concat('Microsoft.KeyVault/vaults/', variables('keyVaultName'))]"
+            ]
+        },
+        {
+            "type": "Microsoft.KeyVault/vaults/secrets",
+            "name": "[concat(variables('keyVaultName'), '/CognitiveServicesUri')]",
+            "apiVersion": "2015-06-01",
+            "properties": {
+                "value": "[parameters('cognitiveServicesUri')]"
+            },
+            "copy": {
+                "name": "secretsCopy",
+                "count": 1
+            },
+            "dependsOn": [
+                "[concat('Microsoft.KeyVault/vaults/', variables('keyVaultName'))]"
+            ]
+        },
+        {
+            "type": "Microsoft.KeyVault/vaults/secrets",
+            "name": "[concat(variables('keyVaultName'), '/CosmosDBConnection')]",
+            "apiVersion": "2015-06-01",
+            "properties": {
+                "value": "[concat('AccountEndpoint=https://', variables('cosmosDbNamespace'), '.documents.azure.com:443/;AccountKey=', listKeys(resourceId('Microsoft.DocumentDb/databaseAccounts', variables('cosmosDbNamespace')), '2016-03-31').primaryMasterKey, ';')]"
+            },
+            "copy": {
+                "name": "secretsCopy",
+                "count": 1
+            },
+            "dependsOn": [
                 "[concat('Microsoft.KeyVault/vaults/', variables('keyVaultName'))]",
                 "[resourceId('Microsoft.DocumentDb/databaseAccounts', variables('cosmosDbNamespace'))]"
-			]
+            ]
         },
         {
-			"type": "Microsoft.KeyVault/vaults/secrets",
-			"name": "[concat(variables('keyVaultName'), '/ServiceBusConnection')]",
-			"apiVersion": "2015-06-01",
-			"properties": {
-				"value": "[listkeys(concat('Microsoft.ServiceBus/namespaces/', variables('servicebusNamespace'), '/AuthorizationRules/RootManageSharedAccessKey'), '2017-04-01').primaryConnectionString]"
-			},
-			"copy": {
-				"name": "secretsCopy",
-				"count": 1
-			},
-			"dependsOn": [
+            "type": "Microsoft.KeyVault/vaults/secrets",
+            "name": "[concat(variables('keyVaultName'), '/ServiceBusConnection')]",
+            "apiVersion": "2015-06-01",
+            "properties": {
+                "value": "[listkeys(concat('Microsoft.ServiceBus/namespaces/', variables('servicebusNamespace'), '/AuthorizationRules/RootManageSharedAccessKey'), '2017-04-01').primaryConnectionString]"
+            },
+            "copy": {
+                "name": "secretsCopy",
+                "count": 1
+            },
+            "dependsOn": [
                 "[concat('Microsoft.KeyVault/vaults/', variables('keyVaultName'))]",
                 "[resourceId('Microsoft.ServiceBus/namespaces', variables('serviceBusNamespace'))]"
-			]
-		}
+            ]
+        }
     ]
 }
