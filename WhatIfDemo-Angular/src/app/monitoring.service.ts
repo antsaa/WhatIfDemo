@@ -21,7 +21,7 @@ export class MonitoringService {
 
         this.routerSubscription = this.router.events
             .pipe(filter((e): e is ResolveEnd =>  e instanceof ResolveEnd))
-            .subscribe((event: ResolveEnd) => {
+            .subscribe((event: any) => {
                 const activatedComponent = this.getActivatedComponent(event.state.root);
                 if (activatedComponent) {
                     this.logPageView(`${activatedComponent.name} ${this.getRouteTemplate(event.state.root)}`, event.urlAfterRedirects);
