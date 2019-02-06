@@ -237,6 +237,10 @@
                             "value": "[concat('@Microsoft.KeyVault(SecretUri=', reference('ServiceBusConnection').secretUriWithVersion, ')')]"
                         },
                         {
+                            "name": "AzureSqlConnection",
+                            "value": "[concat('@Microsoft.KeyVault(SecretUri=', reference('AzureSqlConnection').secretUriWithVersion, ')')]"
+                        },
+                        {
                             "name": "WEBSITE_CONTENTAZUREFILECONNECTIONSTRING",
                             "value": "[concat('DefaultEndpointsProtocol=https;AccountName=', variables('storageAccountName'), ';AccountKey=', listKeys(variables('storageAccountid'),'2015-05-01-preview').key1)]"
                         },
@@ -435,6 +439,21 @@
                 "[concat('Microsoft.KeyVault/vaults/', variables('keyVaultName'))]",
                 "[resourceId('Microsoft.ServiceBus/namespaces', variables('serviceBusNamespace'))]"
             ]
-        }
+        },
+        {
+            "type": "Microsoft.KeyVault/vaults/secrets",
+            "name": "[concat(variables('keyVaultName'), '/AzureSqlConnection')]",
+            "apiVersion": "2015-06-01",
+            "properties": {
+              "value": "[concat('Server=tcp:', variables('sqlServerName'), '.database.windows.net,1433; Initial Catalog=', variables('sqlDatabaseName'), ';Persist Security Info=False;User ID=whatif', ';Password=', parameters('sqlServerAdminPassword'), ';MultipleActiveResultSets=False;Encrypt=True;TrustServerCertificate=False;Connection Timeout=30;')]"
+            },
+            "copy": {
+              "name": "secretsCopy",
+              "count": 1
+            },
+            "dependsOn": [
+              "[concat('Microsoft.KeyVault/vaults/', variables('keyVaultName'))]"
+            ]
+          },
     ]
 }
