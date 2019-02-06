@@ -25,7 +25,7 @@
         },
         "sendGridApiKey": {
             "type": "securestring",
-            "minLength": 10
+            "minLength": 1
         },
         "notificationHubConnection": {
             "type": "securestring",

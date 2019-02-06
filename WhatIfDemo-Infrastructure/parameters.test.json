@@ -1,3 +1,8 @@
 {
-    
+    "sendGridApiKey": {"value": ""},
+    "notificationHubConnection": {"value": ""},
+    "recipientEmailAddress": {"value": ""},
+    "cognitiveServicesUri": {"value": ""},
+    "cognitiveServicesKey": {"value": ""},
+    "sqlServerAdminPassword": {"value": ""}
 }
